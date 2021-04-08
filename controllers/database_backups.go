@@ -7,6 +7,7 @@ import (
 	"github.com/scaleway/scaleway-sdk-go/scw"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -43,23 +44,37 @@ func (d *DatabaseBackupsController) startInventory() {
 			os.Mkdir(backupInstanceIdPath, 0700)
 		}
 
-		dbBackups, err := dbAPI.ListDatabaseBackups(&rdb.ListDatabaseBackupsRequest{
-			Region:     scw.Region(region),
-			InstanceID: &id,
-		})
-		if err != nil {
-			log.Printf("could not get rdb instance %s: %v\n", id, err)
-			continue
+		var backups []*rdb.DatabaseBackup
+		pageSize := uint32(10)
+		currentPage := int32(1)
+		totalCount := uint32(math.MaxInt32)
+		for uint32(currentPage) * pageSize < totalCount {
+			dbBackupsReponse, err := dbAPI.ListDatabaseBackups(&rdb.ListDatabaseBackupsRequest{
+				Region:     scw.Region(region),
+				InstanceID: &id,
+				PageSize: &pageSize,
+				Page: &currentPage,
+			})
+			if err != nil {
+				log.Printf("could not get rdb instance %s: %v\n", id, err)
+				continue
+			}
+
+			backups = append(backups, dbBackupsReponse.DatabaseBackups...)
+
+			totalCount = dbBackupsReponse.TotalCount
+			currentPage += 1
 		}
 
-		for _, backup := range dbBackups.DatabaseBackups {
+
+		for _, backup := range backups {
 			fileName := fmt.Sprintf(backupFormat, backupPath, dbID, backup.DatabaseName, backup.CreatedAt.Format(time.RFC3339))
 			if !fileExists(fileName) {
 				d.downloadFile(dbAPI, backup, fileName)
 			}
 		}
 
-		d.deleteOldBackups(dbBackups.DatabaseBackups, dbID)
+		d.deleteOldBackups(backups, dbID)
 	}
 }
 
