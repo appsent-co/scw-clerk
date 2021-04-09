@@ -69,7 +69,7 @@ func (d *DatabaseBackupsController) startInventory() {
 
 		for _, backup := range backups {
 			fileName := fmt.Sprintf(backupFormat, backupPath, dbID, backup.DatabaseName, backup.CreatedAt.Format(time.RFC3339))
-			if !fileExists(fileName) {
+			if !fileExists(fileName, backup) {
 				d.downloadFile(dbAPI, backup, fileName)
 			}
 		}
@@ -142,9 +142,18 @@ func (d *DatabaseBackupsController) Run() {
 	}
 }
 
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return !os.IsNotExist(err)
+func fileExists(path string, backup *rdb.DatabaseBackup) bool {
+	stats, err := os.Stat(path)
+
+	if os.IsNotExist(err) {
+		return false
+	}
+
+	if backup.Size != nil && stats.Size() != int64(*backup.Size) {
+		return false
+	}
+
+	return true
 }
 
 func downloadFile(URL, fileName string) error {
