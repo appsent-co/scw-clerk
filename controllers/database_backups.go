@@ -114,10 +114,14 @@ func (d *DatabaseBackupsController) deleteOldBackups(backups []*rdb.DatabaseBack
 
 func (d *DatabaseBackupsController) downloadFile(dbAPI *rdb.API, backup *rdb.DatabaseBackup, fileName string) {
 	log.Printf("Clerk is archiving file %s\n", fileName)
-	newBackup, _ := dbAPI.ExportDatabaseBackup(&rdb.ExportDatabaseBackupRequest{
+	newBackup, err := dbAPI.ExportDatabaseBackup(&rdb.ExportDatabaseBackupRequest{
 		DatabaseBackupID: backup.ID,
 		Region:           backup.Region,
 	})
+	if err != nil || newBackup == nil {
+		fmt.Printf("Unexpected error while exporting file: %s\n", err)
+		return
+	}
 
 	for ok := true; ok; ok = newBackup.DownloadURL == nil {
 		newBackup, _ = dbAPI.GetDatabaseBackup(&rdb.GetDatabaseBackupRequest{
@@ -128,7 +132,7 @@ func (d *DatabaseBackupsController) downloadFile(dbAPI *rdb.API, backup *rdb.Dat
 		time.Sleep(10 * time.Second)
 	}
 
-	err := downloadFile(*newBackup.DownloadURL, fileName)
+	err = downloadFile(*newBackup.DownloadURL, fileName)
 	if err != nil {
 		fmt.Printf("Unexpected error while archiving file: %s\n", err)
 	}
