@@ -48,7 +48,7 @@ func (d *DatabaseBackupsController) startInventory() {
 		pageSize := uint32(10)
 		currentPage := int32(1)
 		totalCount := uint32(math.MaxInt32)
-		for uint32(currentPage) * pageSize < totalCount {
+		for uint32(currentPage - 1) * pageSize < totalCount {
 			dbBackupsReponse, err := dbAPI.ListDatabaseBackups(&rdb.ListDatabaseBackupsRequest{
 				Region:     scw.Region(region),
 				InstanceID: &id,
